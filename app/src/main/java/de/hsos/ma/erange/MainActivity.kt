@@ -11,6 +11,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,9 +55,12 @@ import androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
@@ -84,7 +90,12 @@ import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import de.hsos.ma.erange.ui.theme.ERangeTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jsoup.Jsoup
 import java.lang.reflect.Type
 import java.text.MessageFormat
 import java.util.Date
@@ -133,8 +144,9 @@ fun ERange(
     navController: NavController,
     context: Context
 ) {
-    Column(modifier.padding())
-    {
+    var isLoading by remember { mutableStateOf(false) }
+
+    Column(modifier.padding()) {
         Row() {
             Header(modifier)
         }
@@ -158,28 +170,24 @@ fun ERange(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
-
         ) {
             Text(
                 text = "Flat Tour Profile? :"
-
             )
             Row(
-                Modifier
-                    .padding(20.dp, 0.dp, 0.dp, 0.dp)
+                Modifier.padding(20.dp, 0.dp, 0.dp, 0.dp)
             ) {
                 Switch(
-
                     checked = isFlatTourProfile.value,
                     onCheckedChange = {
                         isFlatTourProfile.value = it
                     }
                 )
             }
-
         }
 
         Spacer(Modifier.requiredHeight(10.dp))
+
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
@@ -192,8 +200,6 @@ fun ERange(
                     val range = range(weight, capacity, true)
                     output = MessageFormat.format("Range is: {0}.", range)
                     navController.navigate("results")
-
-                    //   Log.d("eRange output ", output.toString())
                 },
                 modifier = Modifier.padding(10.dp)
             ) {
@@ -218,8 +224,67 @@ fun ERange(
             }
         }
 
+        Spacer(Modifier.requiredHeight(10.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(
+                onClick = {
+                    isLoading = true
+                    fetchBatteryCapacity { fetchedCapacity, error ->
+                        isLoading = false
+                        if (error != null) {
+                            Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
+                        } else {
+                            capacity.value = fetchedCapacity ?: "Not Found"
+                            Toast.makeText(
+                                context,
+                                "Battery Capacity Updated: $fetchedCapacity Wh",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                modifier = Modifier.padding(10.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Fetch Battery Capacity")
+                }
+            }
+        }
     }
 }
+
+
+fun fetchBatteryCapacity(callback: (String?, String?) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val doc = Jsoup.connect("https://www.fahrrad-xxl.de/beratung/e-bike/akku/").get()
+
+            val capacityElement = doc.selectFirst(".battery-capacity-selector-class")
+            val temp = doc.getElementById("Bosch")
+            Log.d("FetchBatteryCapacity", doc.toString())
+
+            val capacity = capacityElement?.text()
+
+            withContext(Dispatchers.Main) {
+                callback(capacity, null)
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                callback(null, e.message)
+            }
+        }
+    }
+}
+
 
 
 @Composable
@@ -720,9 +785,6 @@ fun loadSharedPreferenceString (context: Context, name: String): String {
     if(readVal == null) readVal = ""
     return readVal.toString()
 }
-
-
-
 
 
 
