@@ -45,6 +45,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Label
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -97,10 +98,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import java.lang.reflect.Type
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.MessageFormat
 import java.util.Date
 
 
+var temperature: MutableState<String> = mutableStateOf("n/a")
 var output : String = ""
 var isMenuExpanded : Boolean = false
 var screen : String = "home"
@@ -144,6 +148,7 @@ fun ERange(
     navController: NavController,
     context: Context
 ) {
+
     var isLoading by remember { mutableStateOf(false) }
 
     Column(modifier.padding()) {
@@ -259,8 +264,40 @@ fun ERange(
                 }
             }
         }
+
+        Spacer(Modifier.requiredHeight(10.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(
+                onClick = {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        fetchWeather("Stuttgart", "19c89c04520dce04ef037fe1534f9060")
+                    }
+                },
+                modifier = Modifier.padding(10.dp)
+            ) {
+                Text("Fetch Weather")
+            }
+        }
+        Text(temperature.value)
     }
 }
+
+
+suspend fun fetchWeather(city: String, apikey: String) {
+    val api = WeatherApi.create()
+    val response = api.getWeather(city, apikey)
+    val temp = response.main.temp
+    val humidity = response.main.humidity
+    val description = response.weather[0].description
+
+    Log.d("Weather", "Temperature: $temp, Humidity: $humidity, Description: $description")
+    temperature.value = "Temperature: $temp, Humidity: $humidity, Description: $description"
+}
+
 
 
 fun fetchBatteryCapacity(callback: (String?, String?) -> Unit) {
