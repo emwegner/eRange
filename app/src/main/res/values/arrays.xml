@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="batt_capacity">
+        <item>670 Wh</item>
+        <item>680 Wh</item>
+        <item>690 Wh</item>
+        <item>700 Wh</item>
+        <item>710 Wh</item>
+        <item>720 Wh</item>
+    </string-array>
+    <integer-array name="batt_capacity_values">
+        <item>670</item>
+        <item>680</item>
+        <item>690</item>
+        <item>700</item>
+        <item>710</item>
+        <item>720</item>
+    </integer-array>
+</resources>
