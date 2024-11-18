@@ -2,18 +2,16 @@
 
 package de.hsos.ma.erange
 
-import android.Manifest
-import android.app.backup.BackupAgentHelper
-import android.app.backup.SharedPreferencesBackupHelper
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
@@ -58,69 +57,53 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.motionEventSpy
+import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.room.Dao
-import androidx.room.Database
-import androidx.room.Delete
-import androidx.room.Entity
-import androidx.room.Insert
-import androidx.room.PrimaryKey
-import androidx.room.Query
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.Upsert
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import de.hsos.ma.erange.ui.theme.ERangeTheme
-import kotlinx.coroutines.flow.Flow
 import java.lang.reflect.Type
 import java.text.MessageFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 
 
 var output : String = ""
 var isMenuExpanded : Boolean = false
 var screen : String = "home"
-private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+
+private lateinit var fusedLocationClient: FusedLocationProviderClient
+@RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val context : Context = this
         super.onCreate(savedInstanceState)
-
-        Room.databaseBuilder(
-            applicationContext,
-            EntryDatabase::class.java,
-            EntryDatabase.NAME
-        ).build()
-
+        val entryViewModel = ViewModelProvider(this)[EntryViewModel::class.java]
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
         enableEdgeToEdge()
         setContent {
-            AppNavigator(Modifier,context )
+            AppNavigator(Modifier,context, entryViewModel)
+
         }
     }
-
-    companion object {
-        lateinit var entryDatabase : EntryDatabase
-    }
-
 
 }
 
 //Home
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERange(
     modifier: Modifier,
@@ -131,14 +114,11 @@ fun ERange(
     itemPosition: MutableIntState,
     capacities: List<String>,
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 ) {
     Column(modifier.padding())
     {
-        Row() {
-            Header(modifier)
-        }
-
         InputBox("Your weight [kg] :", txt = weight)
 
         Spacer(Modifier.requiredHeight(10.dp))
@@ -193,7 +173,8 @@ fun ERange(
                     output = MessageFormat.format("Range is: {0}.", range)
                     navController.navigate("results")
 
-                    //   Log.d("eRange output ", output.toString())
+                    entryViewModel.addEntry(range,weight,capacity)
+
                 },
                 modifier = Modifier.padding(10.dp)
             ) {
@@ -222,11 +203,15 @@ fun ERange(
 }
 
 
+
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERangePreview(
     modifier: Modifier,
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 ) {
     val weight = rememberSaveable { mutableStateOf("80") }
     val capacity = rememberSaveable() { mutableStateOf("670")  }
@@ -238,32 +223,29 @@ fun ERangePreview(
     ERangeTheme {
         weight.value = loadSharedPreference(context, "weight").toString()
         val modifier = Modifier
-        ERange(modifier, weight, capacity, isFlatTourProfile, isDropDownExpanded, itemPosition, capacities, navController,context)
+        ERange(modifier, weight, capacity, isFlatTourProfile, isDropDownExpanded, itemPosition, capacities, navController,context, entryViewModel)
     }
 }
 
 @Composable
 fun Header(modifier: Modifier) {
-    Column(modifier.padding()) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
-
+    Column(modifier.padding(), verticalArrangement = Arrangement.Center) {
         Row(
-            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-        val image: Painter = painterResource(id = R.drawable.bikeimg)
-        Image(
-            painter = image, contentDescription = "",
-            Modifier.size(100.dp)
-        )
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+
+       Row(horizontalArrangement = Arrangement.Center
+        ) {
+            val image: Painter = painterResource(id = R.drawable.bikeimg)
+            Image(
+                painter = image, contentDescription = "",
+                Modifier.size(100.dp)
+            )
         }
     }
 }
@@ -390,51 +372,65 @@ fun BackToHomeButton(navController: NavController) {
         )
     }
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun AppNavigator(modifier: Modifier, context: Context) {
+fun AppNavigator(modifier: Modifier, context: Context, entryViewModel: EntryViewModel) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "home") {
-        composable("home") { ERangeHome(navController, context) }
-        composable ("info") { ERangeInfo (navController,context) }
-        composable ("results") { ERangeResults (navController,context) }
-        composable ("map") { ERangeMap (navController,context) }
-        composable ("list") { ERangeList (navController,context) }
+        composable("home") { ERangeHome(navController, context,entryViewModel) }
+        composable ("info") { ERangeInfo (navController,context,entryViewModel) }
+        composable ("results") { ERangeResults (navController,context,entryViewModel) }
+        composable ("map") { ERangeMap (navController,context,entryViewModel) }
+        composable ("list") { ERangeList (navController,context,entryViewModel) }
     }
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERangeInfo(
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 ) {
     screen = "info"
-    Screen(navController, context)
+    Screen(navController, context,entryViewModel)
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ERangeResults(navController: NavController,context: Context) {
+fun ERangeResults(navController: NavController,context: Context,entryViewModel: EntryViewModel) {
     screen = "results"
-    Screen(navController, context)
+    Screen(navController, context,entryViewModel)
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERangeHome(
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 )
 {
    screen = "home"
-   Screen(navController, context)
+   Screen(navController, context,entryViewModel)
 }
 
 //SCROLL CONTENTS
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ScrollContentList(innerPadding: PaddingValues,navController: NavController, context: Context) {
+fun ScrollContentList(innerPadding: PaddingValues,navController: NavController, context: Context, entryViewModel: EntryViewModel) {
     OptionMenu(navController)
     val modifier = Modifier.padding(innerPadding)
+    Column {
+    Row(horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth()
+        ) {
+        Header(modifier)
+    }
+    Row(
+        Modifier
+            .padding(innerPadding)) {
     Column(modifier.padding()) {
-        Text("LISTEE")
+        EntryListPage(entryViewModel)
+    }
+    }
     }
 }
 
@@ -442,13 +438,18 @@ fun ScrollContentList(innerPadding: PaddingValues,navController: NavController, 
 fun ScrollContentResults(innerPadding: PaddingValues,navController: NavController) {
     val modifier = Modifier.padding(innerPadding)
     OptionMenu(navController)
-    Header(modifier)
-    Column(modifier.padding())
+    Column() {
+        Row(horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+        Header(modifier)
+    }
+        Column()
     {
-        Spacer(Modifier.requiredHeight(40.dp))
         RoundedOutputWindow(output, modifier)
         Spacer(Modifier.requiredHeight(10.dp))
        // BackToHomeButton(navController)
+    }
     }
 }
 
@@ -457,20 +458,39 @@ fun ScrollContentResults(innerPadding: PaddingValues,navController: NavControlle
 fun ScrollContentInfo(innerPadding: PaddingValues,navController: NavController) {
     val modifier = Modifier.padding(innerPadding)
     OptionMenu(navController)
-    Header(modifier)
-    Column(modifier.padding())
+    Column {
+    Row(horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Header(modifier)
+    }
+    Column()
     {
-        Spacer(Modifier.requiredHeight(40.dp))
         RoundedOutputWindow("With this app you can easily determine the range of your e-bike. Just fill out the form and press 'Calculate'.", modifier)
         Spacer(Modifier.requiredHeight(10.dp))
       //  BackToHomeButton(navController)
     }
+    }
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ScrollContentHome(innerPadding: PaddingValues,navController: NavController, context : Context) {
+fun ScrollContentHome(
+    innerPadding: PaddingValues,
+    navController: NavController,
+    context: Context,
+    entryViewModel: EntryViewModel
+) {
     OptionMenu(navController)
-    ERangePreview(Modifier.padding(innerPadding),navController, context)
+    Column() {
+        Row(horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ){
+            Header(Modifier.padding(innerPadding))
+        }
+        Row() {
+            ERangePreview(Modifier.padding(innerPadding), navController, context, entryViewModel)
+        }
+    }
 }
 
 @Composable
@@ -510,10 +530,10 @@ fun OptionMenu(navController: NavController) {
         contentDescription = "Show options")
 }
 
-
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Screen(navController: NavController, context : Context) {
+fun Screen(navController: NavController, context : Context, entryViewModel: EntryViewModel) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -577,21 +597,32 @@ fun Screen(navController: NavController, context : Context) {
                             contentDescription = "App Info",
                         )
                     }
+                    IconButton(onClick =
+                    {
+                        navController.navigate("home")
+                    }) {
+                        Icon(
+                            Icons.Filled.Home,
+                            modifier = Modifier.size(36.dp),
+                            contentDescription = "App Info",
+                        )
+                    }
                 },
             )
         }
     ) {
             innerPadding ->
-        ScrollContent(innerPadding,navController, context)
+        ScrollContent(innerPadding,navController, context, entryViewModel)
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ScrollContent(innerPadding: PaddingValues,navController: NavController, context : Context) {
+fun ScrollContent(innerPadding: PaddingValues,navController: NavController, context : Context, entryViewModel: EntryViewModel) {
     when (screen) {
         "home" -> {
             screen = "home"
-            ScrollContentHome(innerPadding,navController, context)
+            ScrollContentHome(innerPadding,navController, context, entryViewModel)
         }
         "results" -> {
             screen = "results"
@@ -603,7 +634,7 @@ fun ScrollContent(innerPadding: PaddingValues,navController: NavController, cont
         }
         "list" -> {
             screen = "list"
-            ScrollContentList(innerPadding,navController, context)
+            ScrollContentList(innerPadding,navController, context, entryViewModel)
         }
         else -> { // Note the block
             screen = "info"
@@ -616,10 +647,17 @@ fun ScrollContent(innerPadding: PaddingValues,navController: NavController, cont
 @Composable
 fun ScrollContentMap(innerPadding: PaddingValues,navController: NavController, context: Context) {
     OptionMenu(navController)
+
     val location = rememberSaveable() { mutableStateOf("ort")  }
     location.value = loadSharedPreferenceString(context, "location")
     val modifier = Modifier.padding(innerPadding)
-    Column(modifier.padding())
+    Column() {
+        Row(horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+        Header(modifier)
+    }
+    Column()
     {
         InputBox("Location :", txt = location)
         Button(
@@ -636,17 +674,19 @@ fun ScrollContentMap(innerPadding: PaddingValues,navController: NavController, c
             )
         }
     }
+    }
 
 }
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERangeMap(
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 )
 {
     screen = "map"
-    Screen(navController,context)
+    Screen(navController,context, entryViewModel)
 }
 
 fun sendIntent(location: String,context: Context) {
@@ -661,14 +701,15 @@ fun sendIntent(location: String,context: Context) {
 
 
 
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ERangeList(
     navController: NavController,
-    context: Context
+    context: Context,
+    entryViewModel: EntryViewModel
 ) {
     screen = "list"
-    Screen(navController, context)
+    Screen(navController, context, entryViewModel)
 }
 
 
