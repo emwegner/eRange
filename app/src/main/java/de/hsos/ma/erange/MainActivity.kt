@@ -80,6 +80,11 @@ import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import de.hsos.ma.erange.ui.theme.ERangeTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jsoup.Jsoup
 import java.lang.reflect.Type
 import java.net.HttpURLConnection
 import java.net.URL
@@ -127,6 +132,8 @@ fun ERange(
     context: Context,
     entryViewModel: EntryViewModel
 ) {
+    var isLoading by remember { mutableStateOf(false) }
+
     Column(modifier.padding())
     {
         InputBox("Your weight [kg] :", txt = weight)
@@ -250,7 +257,7 @@ fun ERange(
             Button(
                 onClick = {
                     CoroutineScope(Dispatchers.IO).launch {
-                        fetchWeather("Stuttgart", "19c89c04520dce04ef037fe1534f9060")
+                        fetchWeather("Osnabrück", "19c89c04520dce04ef037fe1534f9060")
                     }
                 },
                 modifier = Modifier.padding(10.dp)
@@ -262,8 +269,38 @@ fun ERange(
     }
 }
 
+suspend fun fetchWeather(city: String, apikey: String) {
+    val api = WeatherApi.create()
+    val response = api.getWeather(city, apikey)
+    val temp = response.main.temp
+    val humidity = response.main.humidity
+    val description = response.weather[0].description
 
+    Log.d("Weather", "Temperature: $temp, Humidity: $humidity, Description: $description")
+    temperature.value = "Temperature: $temp, Humidity: $humidity, Description: $description"
+}
 
+fun fetchBatteryCapacity(callback: (String?, String?) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val doc = Jsoup.connect("https://www.fahrrad-xxl.de/beratung/e-bike/akku/").get()
+
+            val capacityElement = doc.selectFirst(".battery-capacity-selector-class")
+            val temp = doc.getElementById("Bosch")
+            Log.d("FetchBatteryCapacity", doc.toString())
+
+            val capacity = capacityElement?.text()
+
+            withContext(Dispatchers.Main) {
+                callback(capacity, null)
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                callback(null, e.message)
+            }
+        }
+    }
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
