@@ -2,6 +2,7 @@
 
 package de.hsos.ma.erange
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -155,6 +156,7 @@ fun AppNavigator(modifier: Modifier, context: Context, entryViewModel: EntryView
     }
 }
 
+@SuppressLint("SuspiciousIndentation")
 @Composable
 fun OptionMenu(isMenuExpanded: MutableState<Boolean>, navController: NavController) {
     val options = listOf("Home", "Search", "List", "Info")
