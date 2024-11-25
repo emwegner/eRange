@@ -1,5 +1,6 @@
 package de.hsos.ma.erange
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
@@ -61,6 +62,8 @@ interface EntryDao {
     @Delete
     fun deleteEntry(entry: Entry)
 
+    @Query("DELETE FROM Entry")
+    fun deleteEntries()
 
     @Query("SELECT * FROM Entry")
     fun getEntries(): LiveData<List<Entry>>
@@ -106,6 +109,13 @@ class EntryViewModel : ViewModel() {
     fun deleteEntry(entry: Entry) {
         viewModelScope.launch(Dispatchers.IO) {
             entryDao.deleteEntry(entry = entry)
+        }
+    }
+
+    @SuppressLint("NewApi")
+    fun deleteEntries() {
+        viewModelScope.launch(Dispatchers.IO) {
+            entryDao.deleteEntries()
         }
     }
 }

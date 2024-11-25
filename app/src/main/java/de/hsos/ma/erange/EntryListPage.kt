@@ -42,7 +42,7 @@ fun EntryListPage(viewModel: EntryViewModel){
             LazyColumn(
                 content = {
                     itemsIndexed(entryList!!){ index: Int, item: Entry ->
-                        EntryItem(item = item, onDelete = {
+                        EntryItem(index,item = item, onDelete = {
                             viewModel.deleteEntry(item)
                         })
                     }
@@ -59,7 +59,7 @@ fun EntryListPage(viewModel: EntryViewModel){
 
 @SuppressLint("DefaultLocale")
 @Composable
-fun EntryItem(item : Entry,onDelete : ()-> Unit) {
+fun EntryItem(index: Int, item : Entry,onDelete : ()-> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -74,7 +74,7 @@ fun EntryItem(item : Entry,onDelete : ()-> Unit) {
                 .padding(4.dp)
         ) {
             Text(
-                text = item.id.toString() + ". ",
+                text = (index + 1).toString() + ". ",
                 fontSize = 12.sp,
                 color = Color.White
             )

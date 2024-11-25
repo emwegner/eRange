@@ -44,17 +44,20 @@ import de.hsos.ma.erange.ui.theme.ERangeTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 import java.text.MessageFormat
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ScrollContentHome(
+    isMenuExpanded: MutableState<Boolean>,
     innerPadding: PaddingValues,
     navController: NavController,
     context: Context,
     entryViewModel: EntryViewModel
 ) {
-    OptionMenu(navController)
+
+    OptionMenu(isMenuExpanded,navController)
     Column() {
         Row(horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
@@ -88,7 +91,7 @@ fun ERangePreview(
     entryViewModel: EntryViewModel
 ) {
     val weight = rememberSaveable { mutableStateOf("80") }
-    val capacity = rememberSaveable() { mutableStateOf("670")  }
+    val capacity = rememberSaveable() { mutableStateOf("600")  }
     val isFlatTourProfile = rememberSaveable { mutableStateOf(true) }
     val isDropDownExpanded = rememberSaveable { mutableStateOf(false) }
     val itemPosition = rememberSaveable { mutableIntStateOf(0) }
@@ -117,7 +120,7 @@ fun ERange(
 ) {
     var isLoading by remember { mutableStateOf(false) }
 
-    Column(modifier.padding())
+    Column()
     {
         InputBox("Your weight [kg] :", txt = weight)
 
@@ -264,7 +267,7 @@ fun DropDownSelection(isDropDownExpanded: MutableState<Boolean>, itemPosition: M
             style = MaterialTheme.typography.titleLarge,
         )
     }
-
+    Row (horizontalArrangement = Arrangement.End)  {
     DropdownMenu(
         expanded = isDropDownExpanded.value,
         onDismissRequest = {
@@ -283,7 +286,7 @@ fun DropDownSelection(isDropDownExpanded: MutableState<Boolean>, itemPosition: M
         }
         capacity.value = capacities.get(itemPosition.intValue)
     }
-
+    }
     Icon(
         Icons.Filled.KeyboardArrowDown, modifier = Modifier
             .size(36.dp)

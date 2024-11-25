@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -23,8 +24,13 @@ import androidx.navigation.NavController
 
 
 @Composable
-fun ScrollContentMap(innerPadding: PaddingValues, navController: NavController, context: Context) {
-    OptionMenu(navController)
+fun ScrollContentMap(
+    isMenuExpanded: MutableState<Boolean>,
+    innerPadding: PaddingValues,
+    navController: NavController,
+    context: Context
+) {
+    OptionMenu(isMenuExpanded,navController)
 
     val location = rememberSaveable() { mutableStateOf("ort")  }
     location.value = loadSharedPreferenceString(context, "location")
