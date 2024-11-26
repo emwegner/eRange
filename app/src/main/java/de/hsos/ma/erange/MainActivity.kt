@@ -99,16 +99,23 @@ suspend fun fetchWeather(city: String, apikey: String) {
     temperature.value = "Temperature: $temp, Humidity: $humidity, Description: $description"
 }
 
+
 fun fetchBatteryCapacity(callback: (String?, String?) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
         try {
-            val doc = Jsoup.connect("https://www.fahrrad-xxl.de/beratung/e-bike/akku/").get()
+            val doc = Jsoup.connect("https://www.fahrrad-xxl.de/beratung/e-bike/akku/")
+                .userAgent("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0")
+                .get()
+            val capacityElement = doc.selectXpath("/html/body/div[1]/main/div[1]/div[2]/div/div/div[5]/div/div[2]/div[6]/div/div/div/table/tbody/tr[1]/td[2]")
 
-            val capacityElement = doc.selectFirst(".battery-capacity-selector-class")
-            val temp = doc.getElementById("Bosch")
-            Log.d("FetchBatteryCapacity", doc.toString())
+            Log.d("FetchBatteryCapacity", capacityElement.toString())
 
-            val capacity = capacityElement?.text()
+
+            val capacityValues = capacityElement.text() ?: "400/500/600"
+
+            val capacity = capacityValues.split("/")[0]
+
+            Log.d("FetchBatteryCapacity", "Capacity: $capacity")
 
             withContext(Dispatchers.Main) {
                 callback(capacity, null)
@@ -120,6 +127,7 @@ fun fetchBatteryCapacity(callback: (String?, String?) -> Unit) {
         }
     }
 }
+
 
 
 @Composable
